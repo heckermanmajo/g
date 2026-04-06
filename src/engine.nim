@@ -1,4 +1,5 @@
 import std/options
+import std/random
 import raylib
 import gamestate
 import textures
@@ -19,7 +20,8 @@ proc getEngine*(): Engine =
     var engine {.global.}: Option[Engine] = none(Engine)
     if engine.isSome: return engine.get() # true most of the time, so happy path upfront
     if engine.isNone: 
-        block INIT_ENGINE: 
+        block INIT_ENGINE:
+            randomize()
             var e = Engine()
             initWindow( getScreenWidth(), getScreenHeight(), "Nim Raylib Example" )
             setTargetFPS( 60 )

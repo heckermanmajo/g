@@ -54,6 +54,12 @@ proc getId*(tile: Tile): TileId = tile.id
 proc getId*(chunk: Chunk): ChunkId = chunk.id
 proc beginMode2D*(mapSystem: MapSystem) = beginMode2D(mapSystem.camera)
 
+proc getMapWidthPx*(mapSystem: MapSystem): int =
+    mapSystem.map.mapSizeInChunks * mapSystem.map.chunkSizeInTiles * PIXELS_PER_TILE
+
+proc getMapHeightPx*(mapSystem: MapSystem): int =
+    mapSystem.map.mapSizeInChunks * mapSystem.map.chunkSizeInTiles * PIXELS_PER_TILE
+
 
 proc initMapSystem*(
     chunksPerSide: int,

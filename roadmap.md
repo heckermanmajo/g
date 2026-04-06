@@ -231,6 +231,50 @@ viele fahrzeuge können truppen transportieren
 - man schickt units von start-chunks in die map hinein
 - luft und artillerie schläge und sachen von außerhalb der map rein callen
 
+---
+
+# Phasen
+
+## Phase 1 — Grundgerüst (abgeschlossen)
+- Engine mit Raylib, Game-Loop, Debug-Overlay
+- Chunk-basierte Map mit Tiles, Kamera, Zoom, Tile-Selection
+- Fraktionen-Grundgerüst (2 Fraktionen, Kraft-Ressource)
+- Gras-Texturen rendern
+
+## Phase 2 — Gameplay-Kern
+
+### Phase 2.1 — Units bewegen sich
+- [ ] Units auf der Map platzieren (Position, Chunk-Zugehörigkeit)
+- [ ] Units einer Fraktion zuordnen
+- [ ] Einfaches Pathfinding (Chunk-zu-Chunk A*)
+- [ ] Units per Rechtsklick zu einem Ziel-Chunk schicken
+- [ ] Units als Kreise (Soldaten) / Vierecke (Panzer) zeichnen
+
+### Phase 2.2 — Kampfsystem Grundlagen
+- [ ] Units schießen auf feindliche Units in Reichweite
+- [ ] Schadens-System (Leicht/Mittel/Schwer Kategorien)
+- [ ] Geschosse fliegen als Objekte über die Map
+- [ ] Explosionen mit Radien
+- [ ] Units sterben bei 0 HP
+
+### Phase 2.3 — Chunk-Besitz & Spawning
+- [ ] Chunk-Eroberung durch Präsenz
+- [ ] Spawn-Chunks am Kartenrand
+- [ ] Spawn-Queue: Truppen rufen kostet Kraft
+- [ ] Truppen-Definitionen aus INI-Dateien laden
+
+### Phase 2.4 — Schlachtfeld-Effekte & Feedback
+- [ ] Feuer, Rauch (mit Timer)
+- [ ] Schrott, Leichen (persistent)
+- [ ] Explosion-Effekte die sich gut anfühlen
+- [ ] Strategischer Mode bei Zoom-Out (vereinfachte Darstellung)
+
+### Phase 2.5 — Einfache AI
+- [ ] AI steuert gegnerische Fraktion
+- [ ] AI schickt Units zu relevanten Chunks
+- [ ] AI versucht Frontlinie zu halten
+- [ ] AI sammelt Units bevor sie angreift
+
 # Kampagnenkarte (später)
 - Grid-System mit Armeen und Logistik-Zentren
 - Armeen haben: Kraft, Tech-Level, Training

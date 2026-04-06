@@ -3,6 +3,7 @@ import raylib
 
 import map
 import faction
+import unit
 
 type 
 
@@ -11,6 +12,7 @@ type
         #effectSystem: EffectSystem
         mapSystem: MapSystem
         diplomacySystem: DiplomacySystem
+        unitSystem*: UnitSystem
 
 proc newGameState*(): GameState =
     var gameState = GameState()
@@ -20,7 +22,11 @@ proc newGameState*(): GameState =
         chunkSizeInTiles = 10
     )
     gameState.diplomacySystem = initDiplomacySystem()
-    #gameState.unitSystem = initUnitSystem()
+    gameState.unitSystem = initUnitSystem()
+    gameState.unitSystem.spawnTestUnits(
+        gameState.mapSystem.getMapWidthPx(),
+        gameState.mapSystem.getMapHeightPx()
+    )
     return gameState
 
 proc save_game*( game: GameState ) = discard
@@ -35,6 +41,7 @@ proc runGame*(
     clearBackground( BLACK )
     beginMode2D(game.mapSystem)
     game.mapSystem.drawMap()
+    game.unitSystem.drawUnits(game.diplomacySystem)
     endMode2D()
     # draw UI and check if the mouse is consumed by the UI
     # ...
