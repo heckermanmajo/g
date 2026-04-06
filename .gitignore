@@ -1,0 +1,19 @@
+# Compiled binaries
+main
+*.exe
+*.out
+
+# Nim build artifacts
+nimcache/
+nimbledeps/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

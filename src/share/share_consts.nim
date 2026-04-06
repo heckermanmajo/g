@@ -1,0 +1,3 @@
+
+
+const PIXELS_PER_TILE* = 32
