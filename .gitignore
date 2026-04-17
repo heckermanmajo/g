@@ -6,6 +6,8 @@ main
 # Nim build artifacts
 nimcache/
 nimbledeps/
+htmldocs/
+*.o
 
 # IDE
 .vscode/
@@ -17,3 +19,7 @@ nimbledeps/
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs / temp
+*.log
+*.tmp

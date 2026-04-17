@@ -43,7 +43,7 @@ Sudden Strike 1 + 2 meets Total war; aber in langsam (leicht zu spielen) und mit
 - Für Angriffe konzentriert die AI mehrere Einheiten in einem Chunk bevor sie vorstößt
 
 ## Tech-Level
-- 5 Tech-Level-Stufen (1–5)
+- 3 Tech-Level-Stufen (1–3)
 - Höheres Tech-Level schaltet bessere Einheiten und Support frei
 - Tech-Level wird pro Schlacht festgelegt (später durch Kampagnenkarte bestimmt)
 - Bestimmte Chunks auf der Map können das Tech-Level verbessern wenn erobert
