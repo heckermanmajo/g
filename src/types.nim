@@ -97,6 +97,8 @@ type
         canBeTowed*: bool
         handPushSpeed*: float
         deadTexturePath*: string
+        grenadeDefIndex*: int  # -1 = keine Granaten
+        grenadeStartAmmo*: int  # wieviele Granaten beim Spawn
 
     Unit* = object # eine konkrete Einheit auf der Map
         definition*: UnitDef
@@ -120,6 +122,8 @@ type
         towTarget*: int  # Index des Geschuetzes zu dem der LKW faehrt um anzukoppeln, -1 = keins
         assignedEmplacement*: int  # Index des Geschuetzes an dem dieser Soldat sitzt, -1 = frei
         inBuilding*: int  # Index des Buildings in dem diese Unit sitzt, -1 = frei
+        grenadeAmmo*: int  # verbleibende Granaten (consumable)
+        grenadeCooldownTimer*: float  # Cooldown bis zum naechsten Wurf
 
     # block PROJECTILE:
     Projectile* = object
@@ -141,6 +145,30 @@ type
         timer*: float
         maxTimer*: float
         damageApplied*: bool
+
+    # block GRENADE:
+    GrenadeDef* = object
+        name*: string
+        range*: float
+        damage*: int
+        cooldown*: float
+        flightDuration*: float
+        fuseTimer*: float
+        explosionRadiusHeavy*: float
+        explosionRadiusMedium*: float
+        explosionRadiusLight*: float
+        targetCategory*: DamageCategory
+
+    Grenade* = object
+        defIndex*: int
+        position*: Vector2
+        startPosition*: Vector2
+        targetPosition*: Vector2
+        flightProgress*: float  # 0..1, dann landed
+        fuseTimer*: float
+        landed*: bool
+        thrownByFaction*: int
+        alive*: bool
 
     # block EFFECT:
     Effect* = object  # stationaer (Feuer)
@@ -241,6 +269,8 @@ type
         # combat
         projectiles*: seq[Projectile]
         explosions*: seq[Explosion]
+        grenades*: seq[Grenade]
+        grenadeDefs*: seq[GrenadeDef]
         # factions
         factions*: seq[Faction]
         # effects

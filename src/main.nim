@@ -112,6 +112,25 @@ block BLOCK_SO_WE_DONT_SEGFAULT_DUE_TO_NIM_GARBAGE_COLLECTOR:
                 Faction(name: "Faction 2", color: BLUE, kraft: 500, aiControlled: true)
             ]
 
+        block INIT_GRENADES:
+            gs.grenadeDefs = @[]
+            for file in walkDir("res/grenades"):
+                if file.kind != pcFile or not file.path.endsWith(".ini"): continue
+                let cfg = loadConfig(file.path)
+                var gdef = GrenadeDef()
+                gdef.name = cfg.getSectionValue("Grenade", "name")
+                gdef.range = cfg.getSectionValue("Grenade", "range").parseFloat
+                gdef.damage = cfg.getSectionValue("Grenade", "damage").parseInt
+                gdef.cooldown = cfg.getSectionValue("Grenade", "cooldown").parseFloat
+                gdef.flightDuration = cfg.getSectionValue("Grenade", "flightDuration").parseFloat
+                gdef.fuseTimer = cfg.getSectionValue("Grenade", "fuseTimer").parseFloat
+                gdef.explosionRadiusHeavy = cfg.getSectionValue("Grenade", "explosionRadiusHeavy").parseFloat
+                gdef.explosionRadiusMedium = cfg.getSectionValue("Grenade", "explosionRadiusMedium").parseFloat
+                gdef.explosionRadiusLight = cfg.getSectionValue("Grenade", "explosionRadiusLight").parseFloat
+                gdef.targetCategory = parseEnum[DamageCategory](cfg.getSectionValue("Grenade", "targetCategory"))
+                gs.grenadeDefs.add(gdef)
+            echo "Loaded ", gs.grenadeDefs.len, " grenade definitions"
+
         block INIT_UNITS:
             gs.unitDefs = @[]
             for file in walkDir("res/units"):
@@ -144,6 +163,16 @@ block BLOCK_SO_WE_DONT_SEGFAULT_DUE_TO_NIM_GARBAGE_COLLECTOR:
                 unitDefinition.canBeTowed = cfg.getSectionValue("Unit", "canBeTowed") == "true"
                 unitDefinition.handPushSpeed = cfg.getSectionValue("Unit", "handPushSpeed", "0").parseFloat
                 unitDefinition.deadTexturePath = cfg.getSectionValue("Unit", "deadTexturePath", "")
+                let grenadeType = cfg.getSectionValue("Unit", "grenadeType", "")
+                unitDefinition.grenadeDefIndex = -1
+                if grenadeType != "":
+                    for gi in 0 ..< gs.grenadeDefs.len:
+                        if gs.grenadeDefs[gi].name == grenadeType:
+                            unitDefinition.grenadeDefIndex = gi
+                            break
+                    if unitDefinition.grenadeDefIndex < 0:
+                        echo "WARNING: UnitDef '", unitDefinition.name, "' references unknown grenade '", grenadeType, "'"
+                unitDefinition.grenadeStartAmmo = cfg.getSectionValue("Unit", "grenadeStartAmmo", "0").parseInt
                 gs.unitDefs.add(unitDefinition)
 
         block INIT_TROOPS:

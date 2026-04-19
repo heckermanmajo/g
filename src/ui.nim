@@ -177,7 +177,7 @@ proc drawUI*(game: var GameState) =
         let unit = game.units[unitIdx]
 
         let panelW = 180.0
-        let panelH = 100.0
+        let panelH = 120.0
         let panelX = screenW - panelW - ICON_PAD.float
         let panelY = screenH - panelH - ICON_PAD.float
         let panelRect = Rectangle(x: panelX, y: panelY, width: panelW, height: panelH)
@@ -217,10 +217,18 @@ proc drawUI*(game: var GameState) =
         let hpStr = $unit.health & "/" & $unit.definition.baseHealth
         drawText(hpStr, textX.int32, (textY + 18).int32, 14, GREEN)
 
+        # granaten
+        if unit.definition.grenadeDefIndex >= 0:
+            let gDef = game.grenadeDefs[unit.definition.grenadeDefIndex]
+            let gStr = gDef.name & " x" & $unit.grenadeAmmo
+            let gColor = if unit.grenadeAmmo > 0: Color(r: 220, g: 200, b: 100, a: 255)
+                         else: Color(r: 120, g: 120, b: 120, a: 255)
+            drawText(gStr, textX.int32, (textY + 36).int32, 12, gColor)
+
         # selected count
         if game.selectedUnits.len > 1:
             let countStr = $game.selectedUnits.len & " units"
-            drawText(countStr, textX.int32, (textY + 36).int32, 14, YELLOW)
+            drawText(countStr, textX.int32, (textY + 54).int32, 14, YELLOW)
 
     block UI_VICTORY_SCREEN:
         if not game.gameOver: break UI_VICTORY_SCREEN

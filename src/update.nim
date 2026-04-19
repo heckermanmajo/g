@@ -227,6 +227,69 @@ proc updateGame*(game: var GameState) =
                         if isEmpty:
                             game.units[i].factionIndex = game.units[j].factionIndex
 
+    block UPDATE_BUILDING_CHUNK_TRACKING:
+        for i in 0 ..< game.buildings.len:
+            if not game.buildings[i].alive: continue
+            let chunkX = clamp(game.buildings[i].position.x.int, 0, mapSizePixels - 1) div chunkSizePixels
+            let chunkY = clamp(game.buildings[i].position.y.int, 0, mapSizePixels - 1) div chunkSizePixels
+            game.buildings[i].currentChunk = chunkX * game.map.mapSizeInChunks + chunkY
+
+    block UPDATE_BUILDING_OCCUPANT_ASSIGN:
+        let autoAssignRadius = 200.0
+        let buildingArriveRadius = 30.0
+        for i in 0 ..< game.buildings.len:
+            if not game.buildings[i].alive: continue
+            if game.buildings[i].kind != BuildingKind.Bunker: continue
+            if game.buildings[i].occupantIndices.len >= game.buildings[i].maxOccupants: continue
+            let buildingPos = game.buildings[i].position
+            let isEmpty = game.buildings[i].occupantIndices.len == 0
+            for j in 0 ..< game.units.len:
+                if game.buildings[i].occupantIndices.len >= game.buildings[i].maxOccupants: break
+                if not game.units[j].alive: continue
+                if game.units[j].inTransportOf >= 0: continue
+                if game.units[j].assignedEmplacement >= 0: continue
+                if game.units[j].inBuilding >= 0: continue
+                if not isEmpty and game.units[j].factionIndex != game.buildings[i].factionIndex: continue
+                if game.units[j].definition.damageCategory != DamageCategory.Light: continue
+                if game.units[j].definition.isEmplacement: continue
+                if game.units[j].definition.canTransport: continue
+                let dx = game.units[j].position.x - buildingPos.x
+                let dy = game.units[j].position.y - buildingPos.y
+                let dist = sqrt(dx * dx + dy * dy)
+                if dist > autoAssignRadius: continue
+                if dist <= buildingArriveRadius:
+                    if isEmpty:
+                        game.buildings[i].factionIndex = game.units[j].factionIndex
+                    game.units[j].inBuilding = i
+                    game.units[j].inTransportOf = i
+                    game.units[j].targetPosition = none(Vector2)
+                    game.units[j].finalPosition = none(Vector2)
+                    game.units[j].path = @[]
+                    game.buildings[i].occupantIndices.add(j)
+
+    block UPDATE_BUILDING_CLEANUP:
+        for i in 0 ..< game.buildings.len:
+            if not game.buildings[i].alive: continue
+            var k = 0
+            while k < game.buildings[i].occupantIndices.len:
+                let occIdx = game.buildings[i].occupantIndices[k]
+                if not game.units[occIdx].alive:
+                    game.buildings[i].occupantIndices.delete(k)
+                else:
+                    k += 1
+            if game.buildings[i].health <= 0:
+                game.buildings[i].alive = false
+                for occIdx in game.buildings[i].occupantIndices:
+                    let offset = Vector2(x: rand(-20.0..20.0), y: rand(-20.0..20.0))
+                    game.units[occIdx].inBuilding = -1
+                    game.units[occIdx].inTransportOf = -1
+                    game.units[occIdx].position = Vector2(
+                        x: game.buildings[i].position.x + offset.x,
+                        y: game.buildings[i].position.y + offset.y
+                    )
+                    game.units[occIdx].health = game.units[occIdx].definition.baseHealth div 2
+                game.buildings[i].occupantIndices = @[]
+
     block UPDATE_SEPARATION:
         for i in 0 ..< game.map.chunks.len:
             let indices = game.map.chunks[i].unitIndices
@@ -274,7 +337,8 @@ proc updateGame*(game: var GameState) =
                         targetPosition: none(Vector2), finalPosition: none(Vector2),
                         path: @[], currentChunk: req.spawnChunkIndex,
                         towedByUnit: -1, towingEmplacement: -1, towTarget: -1, assignedEmplacement: -1, inTransportOf: -1,
-                        inBuilding: -1
+                        inBuilding: -1,
+                        grenadeAmmo: unitDefinition.grenadeStartAmmo
                     )
                     game.units.add(newUnit)
                     game.factions[factionIdx].spawnQueue.delete(j)
@@ -309,7 +373,9 @@ proc updateGame*(game: var GameState) =
                                 health: unitDef.baseHealth, alive: true,
                                 targetPosition: none(Vector2), finalPosition: none(Vector2),
                                 path: @[], currentChunk: req.spawnChunkIndex,
-                                towedByUnit: -1, towingEmplacement: -1, towTarget: -1, assignedEmplacement: -1, inTransportOf: -1
+                                towedByUnit: -1, towingEmplacement: -1, towTarget: -1, assignedEmplacement: -1, inTransportOf: -1,
+                                inBuilding: -1,
+                                grenadeAmmo: unitDef.grenadeStartAmmo
                             ))
                             if unitDef.canTransport:
                                 transportIndices.add(unitIdx)

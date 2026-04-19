@@ -235,11 +235,55 @@ proc drawGame*(game: var GameState) =
                 let hpColor = if hpRatio > 0.5: greenColor else: redColor
                 drawRectangle(barX.int32, barY.int32, (barWidth * hpRatio).int32, barHeight.int32, hpColor)
 
+    block DRAW_BUILDINGS:
+        for building in game.buildings:
+            if not building.alive: continue
+            let w = 60.0
+            let h = 60.0
+            let bx = building.position.x - w / 2.0
+            let by = building.position.y - h / 2.0
+            drawRectangle(bx.int32, by.int32, w.int32, h.int32, Color(r: 110, g: 110, b: 110, a: 255))
+            if building.factionIndex >= 0:
+                let fc = game.factions[building.factionIndex].color
+                drawRectangle(bx.int32, by.int32, w.int32, h.int32, Color(r: fc.r, g: fc.g, b: fc.b, a: 90))
+            drawRectangleLines(bx.int32, by.int32, w.int32, h.int32, BLACK)
+            block BUILDING_HEALTH_BAR:
+                if building.health >= building.maxHealth: break BUILDING_HEALTH_BAR
+                let hpRatio = building.health.float / building.maxHealth.float
+                let barWidth = 40.0
+                let barHeight = 4.0
+                let barX = building.position.x - barWidth / 2.0
+                let barY = building.position.y - h / 2.0 - 8.0
+                drawRectangle(barX.int32, barY.int32, barWidth.int32, barHeight.int32, DARKGRAY)
+                let greenColor = Color(r: 0, g: 200, b: 0, a: 255)
+                let redColor = Color(r: 200, g: 0, b: 0, a: 255)
+                let hpColor = if hpRatio > 0.5: greenColor else: redColor
+                drawRectangle(barX.int32, barY.int32, (barWidth * hpRatio).int32, barHeight.int32, hpColor)
+
     block DRAW_PROJECTILES:
         if strategicMode: break DRAW_PROJECTILES
         for projectile in game.projectiles:
             if not projectile.alive: continue
             drawCircle(projectile.position.x.int32, projectile.position.y.int32, 3.0, YELLOW)
+
+    block DRAW_GRENADES:
+        if strategicMode: break DRAW_GRENADES
+        let greyColor = Color(r: 100, g: 100, b: 100, a: 255)
+        let greyDark = Color(r: 60, g: 60, b: 60, a: 255)
+        let redBlink = Color(r: 220, g: 40, b: 40, a: 255)
+        for grenade in game.grenades:
+            if not grenade.alive: continue
+            if not grenade.landed:
+                let p = grenade.flightProgress
+                let arc = sin(p * PI) * 20.0
+                let shadowY = grenade.position.y
+                drawCircle(grenade.position.x.int32, shadowY.int32, 3.0,
+                    Color(r: 0, g: 0, b: 0, a: 100))
+                drawCircle(grenade.position.x.int32, (grenade.position.y - arc).int32, 4.0, greyColor)
+            else:
+                let blink = grenade.fuseTimer < 0.5 and (int(grenade.fuseTimer * 10) mod 2 == 0)
+                let c = if blink: redBlink else: greyDark
+                drawCircle(grenade.position.x.int32, grenade.position.y.int32, 4.0, c)
 
     block DRAW_EXPLOSIONS:
         for explosion in game.explosions:
