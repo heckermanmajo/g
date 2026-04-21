@@ -4,10 +4,9 @@ import std/random
 
 import raylib
 
-import types
+import ../shared/types
 import combat
 
-const SEPARATION_RADIUS = 40.0
 const SEPARATION_STRENGTH = 1.5
 
 proc updateGame*(game: var GameState) =
@@ -99,7 +98,8 @@ proc updateGame*(game: var GameState) =
                 game.map.chunks[i].currentOwner = lastFaction
                 if prevOwner != lastFaction and
                    game.map.chunks[i].kraftBonusOnCapture > 0 and
-                   not game.map.chunks[i].kraftBonusClaimed:
+                   not game.map.chunks[i].kraftBonusClaimed and
+                   lastFaction >= 0 and lastFaction < game.factions.len:
                     game.factions[lastFaction].kraft += game.map.chunks[i].kraftBonusOnCapture
                     game.map.chunks[i].kraftBonusClaimed = true
             else:
@@ -234,39 +234,6 @@ proc updateGame*(game: var GameState) =
             let chunkY = clamp(game.buildings[i].position.y.int, 0, mapSizePixels - 1) div chunkSizePixels
             game.buildings[i].currentChunk = chunkX * game.map.mapSizeInChunks + chunkY
 
-    block UPDATE_BUILDING_OCCUPANT_ASSIGN:
-        let autoAssignRadius = 200.0
-        let buildingArriveRadius = 30.0
-        for i in 0 ..< game.buildings.len:
-            if not game.buildings[i].alive: continue
-            if game.buildings[i].kind != BuildingKind.Bunker: continue
-            if game.buildings[i].occupantIndices.len >= game.buildings[i].maxOccupants: continue
-            let buildingPos = game.buildings[i].position
-            let isEmpty = game.buildings[i].occupantIndices.len == 0
-            for j in 0 ..< game.units.len:
-                if game.buildings[i].occupantIndices.len >= game.buildings[i].maxOccupants: break
-                if not game.units[j].alive: continue
-                if game.units[j].inTransportOf >= 0: continue
-                if game.units[j].assignedEmplacement >= 0: continue
-                if game.units[j].inBuilding >= 0: continue
-                if not isEmpty and game.units[j].factionIndex != game.buildings[i].factionIndex: continue
-                if game.units[j].definition.damageCategory != DamageCategory.Light: continue
-                if game.units[j].definition.isEmplacement: continue
-                if game.units[j].definition.canTransport: continue
-                let dx = game.units[j].position.x - buildingPos.x
-                let dy = game.units[j].position.y - buildingPos.y
-                let dist = sqrt(dx * dx + dy * dy)
-                if dist > autoAssignRadius: continue
-                if dist <= buildingArriveRadius:
-                    if isEmpty:
-                        game.buildings[i].factionIndex = game.units[j].factionIndex
-                    game.units[j].inBuilding = i
-                    game.units[j].inTransportOf = i
-                    game.units[j].targetPosition = none(Vector2)
-                    game.units[j].finalPosition = none(Vector2)
-                    game.units[j].path = @[]
-                    game.buildings[i].occupantIndices.add(j)
-
     block UPDATE_BUILDING_CLEANUP:
         for i in 0 ..< game.buildings.len:
             if not game.buildings[i].alive: continue
@@ -277,6 +244,8 @@ proc updateGame*(game: var GameState) =
                     game.buildings[i].occupantIndices.delete(k)
                 else:
                     k += 1
+            if game.buildings[i].occupantIndices.len == 0:
+                game.buildings[i].factionIndex = -1
             if game.buildings[i].health <= 0:
                 game.buildings[i].alive = false
                 for occIdx in game.buildings[i].occupantIndices:
@@ -304,8 +273,9 @@ proc updateGame*(game: var GameState) =
                     let dx = game.units[ai].position.x - game.units[bi].position.x
                     let dy = game.units[ai].position.y - game.units[bi].position.y
                     let dist = sqrt(dx * dx + dy * dy)
-                    if dist < SEPARATION_RADIUS and dist > 0.01:
-                        let factor = SEPARATION_STRENGTH * (1.0 - dist / SEPARATION_RADIUS)
+                    let sepRadius = game.units[ai].definition.radius + game.units[bi].definition.radius
+                    if dist < sepRadius and dist > 0.01:
+                        let factor = SEPARATION_STRENGTH * (1.0 - dist / sepRadius)
                         let nx = dx / dist * factor
                         let ny = dy / dist * factor
                         game.units[ai].position.x += nx
@@ -476,7 +446,7 @@ proc updateGame*(game: var GameState) =
             for i in 0 ..< game.map.chunks.len:
                 if game.map.chunks[i].kraftPerSecond <= 0: continue
                 let owner = game.map.chunks[i].currentOwner
-                if owner < 0: continue
+                if owner < 0 or owner >= game.factions.len: continue
                 game.factions[owner].kraft += game.map.chunks[i].kraftPerSecond
 
     block UPDATE_VICTORY:

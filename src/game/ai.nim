@@ -3,7 +3,7 @@ import std/random
 import std/options
 import raylib
 
-import types
+import ../shared/types
 import pathfinding
 
 const AI_SPAWN_INTERVAL = 4.0
@@ -483,6 +483,67 @@ proc updateAISpawn(game: var GameState, factionIdx: int) =
             timer: SPAWN_TIME
         ))
 
+# -- Bunker-Besetzung --
+
+proc aiOccupyBunkers(game: var GameState, factionIdx: int) =
+    ## Eigene/neutrale Bunker mit idle Inf befuellen. Nahe Units werden direkt
+    ## eingesogen, entfernte aber verfuegbare werden zum Bunker-Chunk geschickt.
+    let loadRadius = 120.0
+    let sendRadius = 6.0  # in Chunks — Units weiter weg ignorieren
+    for b in 0 ..< game.buildings.len:
+        if not game.buildings[b].alive: continue
+        if game.buildings[b].kind != BuildingKind.Bunker: continue
+        let bFaction = game.buildings[b].factionIndex
+        if bFaction >= 0 and bFaction != factionIdx: continue
+        let maxO = game.buildings[b].maxOccupants
+        if game.buildings[b].occupantIndices.len >= maxO: continue
+        let pos = game.buildings[b].position
+
+        # Stufe 1: nahe Units direkt einsaugen
+        for i in 0 ..< game.units.len:
+            if game.buildings[b].occupantIndices.len >= maxO: break
+            if not game.units[i].alive: continue
+            if game.units[i].factionIndex != factionIdx: continue
+            if game.units[i].inTransportOf >= 0: continue
+            if game.units[i].inBuilding >= 0: continue
+            if game.units[i].assignedEmplacement >= 0: continue
+            if game.units[i].definition.canTransport: continue
+            if game.units[i].definition.isEmplacement: continue
+            if game.units[i].definition.damageCategory != DamageCategory.Light: continue
+            let dx = game.units[i].position.x - pos.x
+            let dy = game.units[i].position.y - pos.y
+            if sqrt(dx * dx + dy * dy) > loadRadius: continue
+            if game.buildings[b].factionIndex < 0:
+                game.buildings[b].factionIndex = factionIdx
+            game.units[i].inBuilding = b
+            game.units[i].inTransportOf = b
+            game.units[i].targetPosition = none(Vector2)
+            game.units[i].finalPosition = none(Vector2)
+            game.units[i].path = @[]
+            game.buildings[b].occupantIndices.add(i)
+
+        # Stufe 2: idle Units in der Naehe zum Bunker-Chunk schicken bis voll
+        if game.buildings[b].occupantIndices.len >= maxO: continue
+        var idle = game.getAllAvailableUnits(factionIdx)
+        var sent = 0
+        let needed = maxO - game.buildings[b].occupantIndices.len
+        while sent < needed and idle.len > 0:
+            var bestIdx = -1
+            var bestDist = sendRadius
+            for j in 0 ..< idle.len:
+                let u = idle[j]
+                if game.units[u].definition.canTransport: continue
+                if game.units[u].definition.isEmplacement: continue
+                if game.units[u].definition.damageCategory != DamageCategory.Light: continue
+                let d = game.chunkDist(game.units[u].currentChunk, game.buildings[b].currentChunk)
+                if d < bestDist:
+                    bestDist = d
+                    bestIdx = j
+            if bestIdx < 0: break
+            game.sendUnitToChunk(idle[bestIdx], game.buildings[b].currentChunk)
+            idle.delete(bestIdx)
+            sent += 1
+
 # -- Stale-Reset --
 
 proc resetStaleUnits(game: var GameState, factionIdx: int) =
@@ -509,6 +570,7 @@ proc updateAI*(game: var GameState) =
         game.factions[factionIdx].aiThinkTimer = AI_THINK_INTERVAL
 
         game.resetStaleUnits(factionIdx)
+        game.aiOccupyBunkers(factionIdx)
 
         let strategy = game.chooseStrategy(factionIdx)
         game.factions[factionIdx].activeStrategy = strategy

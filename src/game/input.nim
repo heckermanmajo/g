@@ -4,7 +4,7 @@ import std/random
 
 import raylib
 
-import types
+import ../shared/types
 import pathfinding
 
 const PLAYER_FACTION = 0
@@ -66,8 +66,19 @@ proc handleInput*(game: var GameState) =
                             bestIdx = i
                     if bestIdx >= 0:
                         game.selectedUnits = @[bestIdx]
+                        game.selectedBuilding = -1
                     else:
                         game.selectedUnits = @[]
+                        var bldIdx = -1
+                        let halfSize = 30.0
+                        for i in 0 ..< game.buildings.len:
+                            let b = game.buildings[i]
+                            if not b.alive: continue
+                            if mouseWorld.x >= b.position.x - halfSize and mouseWorld.x < b.position.x + halfSize and
+                               mouseWorld.y >= b.position.y - halfSize and mouseWorld.y < b.position.y + halfSize:
+                                bldIdx = i
+                                break
+                        game.selectedBuilding = bldIdx
             else:
                 block RECT_SELECT:
                     let endWorld = mouseWorld
@@ -147,6 +158,30 @@ proc handleInput*(game: var GameState) =
 
     block INPUT_UNLOAD:
         if isKeyPressed(KeyboardKey.U):
+            block UNLOAD_BUILDING:
+                let b = game.selectedBuilding
+                if b < 0: break UNLOAD_BUILDING
+                if not game.buildings[b].alive: break UNLOAD_BUILDING
+                let pos = game.buildings[b].position
+                let chunkIdx = game.buildings[b].currentChunk
+                let count = game.buildings[b].occupantIndices.len
+                for pi in 0 ..< count:
+                    let solIdx = game.buildings[b].occupantIndices[pi]
+                    if not game.units[solIdx].alive: continue
+                    let angle = (pi.float / max(count, 1).float) * 2.0 * PI
+                    let offset = 45.0
+                    game.units[solIdx].inBuilding = -1
+                    game.units[solIdx].inTransportOf = -1
+                    game.units[solIdx].position = Vector2(
+                        x: pos.x + cos(angle) * offset,
+                        y: pos.y + sin(angle) * offset
+                    )
+                    game.units[solIdx].currentChunk = chunkIdx
+                    game.units[solIdx].targetPosition = none(Vector2)
+                    game.units[solIdx].finalPosition = none(Vector2)
+                    game.units[solIdx].path = @[]
+                game.buildings[b].occupantIndices = @[]
+
             for unitIdx in game.selectedUnits:
                 if not game.units[unitIdx].alive: continue
 
@@ -194,6 +229,39 @@ proc handleInput*(game: var GameState) =
 
     block INPUT_LOAD:
         if isKeyPressed(KeyboardKey.L):
+            block LOAD_BUILDING:
+                let b = game.selectedBuilding
+                if b < 0: break LOAD_BUILDING
+                if not game.buildings[b].alive: break LOAD_BUILDING
+                if game.buildings[b].kind != BuildingKind.Bunker: break LOAD_BUILDING
+                if game.buildings[b].factionIndex >= 0 and game.buildings[b].factionIndex != PLAYER_FACTION: break LOAD_BUILDING
+                let maxO = game.buildings[b].maxOccupants
+                if game.buildings[b].occupantIndices.len >= maxO: break LOAD_BUILDING
+                let pos = game.buildings[b].position
+                let loadRadius = 120.0
+                for i in 0 ..< game.units.len:
+                    if game.buildings[b].occupantIndices.len >= maxO: break
+                    if not game.units[i].alive: continue
+                    if game.units[i].factionIndex != PLAYER_FACTION: continue
+                    if game.units[i].inTransportOf >= 0: continue
+                    if game.units[i].inBuilding >= 0: continue
+                    if game.units[i].assignedEmplacement >= 0: continue
+                    if game.units[i].definition.canTransport: continue
+                    if game.units[i].definition.isEmplacement: continue
+                    if game.units[i].definition.damageCategory != DamageCategory.Light: continue
+                    let dx = game.units[i].position.x - pos.x
+                    let dy = game.units[i].position.y - pos.y
+                    let dist = sqrt(dx * dx + dy * dy)
+                    if dist <= loadRadius:
+                        if game.buildings[b].factionIndex < 0:
+                            game.buildings[b].factionIndex = PLAYER_FACTION
+                        game.units[i].inBuilding = b
+                        game.units[i].inTransportOf = b
+                        game.units[i].targetPosition = none(Vector2)
+                        game.units[i].finalPosition = none(Vector2)
+                        game.units[i].path = @[]
+                        game.buildings[b].occupantIndices.add(i)
+
             for unitIdx in game.selectedUnits:
                 if not game.units[unitIdx].alive: continue
                 if not game.units[unitIdx].definition.canTransport: continue

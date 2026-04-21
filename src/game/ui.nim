@@ -3,7 +3,8 @@ import std/math
 
 import raylib
 
-import types
+import ../shared/types
+import ../shared/mapio
 
 const PLAYER_FACTION = 0
 const ICON_SIZE = 64
@@ -13,6 +14,108 @@ const TOGGLE_BTN_H = 40
 
 proc pointInRect(px, py: float, r: Rectangle): bool =
     px >= r.x and px < r.x + r.width and py >= r.y and py < r.y + r.height
+
+proc drawMainMenu*(game: var GameState) =
+    let screenW = getScreenWidth().float
+    let screenH = getScreenHeight().float
+    let mousePos = getMousePosition()
+    let mouseClick = isMouseButtonPressed(MouseButton.Left)
+
+    clearBackground(Color(r: 20, g: 20, b: 30, a: 255))
+
+    block TITLE:
+        let title = "g"
+        let fontSize: int32 = 200
+        let textW = measureText(title, fontSize)
+        let tx = ((screenW - textW.float) / 2.0).int32
+        let ty = (screenH * 0.2).int32
+        drawText(title, tx, ty, fontSize, WHITE)
+
+    block BUTTONS:
+        let btnW = 280.0
+        let btnH = 70.0
+        let btnX = (screenW - btnW) / 2.0
+        var btnY = screenH * 0.5
+        let btnGap = 20.0
+        let fontSize: int32 = 32
+
+        let buttons = [("Start", 0), ("Beenden", 1)]
+        for (label, action) in buttons:
+            let rect = Rectangle(x: btnX, y: btnY, width: btnW, height: btnH)
+            let hovered = pointInRect(mousePos.x, mousePos.y, rect)
+            let bg = if hovered: Color(r: 90, g: 90, b: 110, a: 255)
+                     else: Color(r: 60, g: 60, b: 80, a: 255)
+            drawRectangle(rect.x.int32, rect.y.int32, rect.width.int32, rect.height.int32, bg)
+            drawRectangleLines(rect.x.int32, rect.y.int32, rect.width.int32, rect.height.int32, WHITE)
+            let textW = measureText(label, fontSize)
+            let tx = (rect.x + (rect.width - textW.float) / 2.0).int32
+            let ty = (rect.y + (rect.height - fontSize.float) / 2.0).int32
+            drawText(label, tx, ty, fontSize, WHITE)
+            if hovered and mouseClick:
+                if action == 0:
+                    game.availableMaps = listMaps()
+                    game.mode = GameMode.MapSelect
+                elif action == 1: game.quitRequested = true
+            btnY += btnH + btnGap
+
+proc drawMapSelect*(game: var GameState) =
+    let screenW = getScreenWidth().float
+    let screenH = getScreenHeight().float
+    let mousePos = getMousePosition()
+    let mouseClick = isMouseButtonPressed(MouseButton.Left)
+
+    clearBackground(Color(r: 20, g: 20, b: 30, a: 255))
+
+    block TITLE:
+        let title = "Map waehlen"
+        let fontSize: int32 = 60
+        let textW = measureText(title, fontSize)
+        let tx = ((screenW - textW.float) / 2.0).int32
+        drawText(title, tx, 80, fontSize, WHITE)
+
+    let btnW = 400.0
+    let btnH = 50.0
+    let btnX = (screenW - btnW) / 2.0
+    var btnY = 200.0
+    let btnGap = 12.0
+    let fontSize: int32 = 24
+
+    if game.availableMaps.len == 0:
+        let msg = "Keine Maps gefunden in maps/"
+        let mw = measureText(msg, 22)
+        drawText(msg, ((screenW - mw.float) / 2.0).int32, btnY.int32, 22, GRAY)
+        btnY += 60
+    else:
+        for name in game.availableMaps:
+            let rect = Rectangle(x: btnX, y: btnY, width: btnW, height: btnH)
+            let hovered = pointInRect(mousePos.x, mousePos.y, rect)
+            let bg = if hovered: Color(r: 90, g: 90, b: 110, a: 255)
+                     else: Color(r: 60, g: 60, b: 80, a: 255)
+            drawRectangle(rect.x.int32, rect.y.int32, rect.width.int32, rect.height.int32, bg)
+            drawRectangleLines(rect.x.int32, rect.y.int32, rect.width.int32, rect.height.int32, WHITE)
+            let textW = measureText(name, fontSize)
+            let tx = (rect.x + (rect.width - textW.float) / 2.0).int32
+            let ty = (rect.y + (rect.height - fontSize.float) / 2.0).int32
+            drawText(name, tx, ty, fontSize, WHITE)
+            if hovered and mouseClick:
+                game.selectedMapName = name
+                game.startGameRequested = true
+            btnY += btnH + btnGap
+
+    # zurueck-button
+    let backRect = Rectangle(x: btnX, y: screenH - 100, width: btnW, height: 50)
+    let backHovered = pointInRect(mousePos.x, mousePos.y, backRect)
+    let backBg = if backHovered: Color(r: 90, g: 90, b: 110, a: 255)
+                 else: Color(r: 60, g: 60, b: 80, a: 255)
+    drawRectangle(backRect.x.int32, backRect.y.int32, backRect.width.int32, backRect.height.int32, backBg)
+    drawRectangleLines(backRect.x.int32, backRect.y.int32, backRect.width.int32, backRect.height.int32, WHITE)
+    let backLabel = "Zurueck"
+    let bw = measureText(backLabel, fontSize)
+    drawText(backLabel,
+        (backRect.x + (backRect.width - bw.float) / 2.0).int32,
+        (backRect.y + (backRect.height - fontSize.float) / 2.0).int32, fontSize, WHITE)
+    if backHovered and mouseClick:
+        game.mode = GameMode.MainMenu
 
 proc drawUI*(game: var GameState) =
     let screenW = getScreenWidth().float
@@ -193,8 +296,8 @@ proc drawUI*(game: var GameState) =
         let iconX = panelX + ICON_PAD.float
         let iconY = panelY + ICON_PAD.float
         let iconSz = 64
-        let texPath = if unit.factionIndex == 0: unit.definition.texturePathRed
-                      else: unit.definition.texturePathBlue
+        let safeFactionIdx = if unit.factionIndex in 0..3: unit.factionIndex else: 0
+        let texPath = unit.definition.texturePaths[safeFactionIdx]
         if texPath != "" and texPath in game.textures:
             let texPtr = addr game.textures[texPath]
             let texW = texPtr[].width.float
@@ -237,5 +340,25 @@ proc drawUI*(game: var GameState) =
         let fontSize: int32 = 80
         let textW = measureText(label, fontSize)
         let tx = ((screenW - textW.float) / 2.0).int32
-        let ty = ((screenH - fontSize.float) / 2.0).int32
+        let ty = ((screenH - fontSize.float) / 2.0).int32 - 60
         drawText(label, tx, ty, fontSize, WHITE)
+
+        let btnW = 320.0
+        let btnH = 60.0
+        let btnX = (screenW - btnW) / 2.0
+        let btnY = (ty + fontSize + 40).float
+        let rect = Rectangle(x: btnX, y: btnY, width: btnW, height: btnH)
+        let hovered = pointInRect(mousePos.x, mousePos.y, rect)
+        if hovered: game.uiHovered = true
+        let bg = if hovered: Color(r: 90, g: 90, b: 110, a: 255)
+                 else: Color(r: 60, g: 60, b: 80, a: 255)
+        drawRectangle(rect.x.int32, rect.y.int32, rect.width.int32, rect.height.int32, bg)
+        drawRectangleLines(rect.x.int32, rect.y.int32, rect.width.int32, rect.height.int32, WHITE)
+        let btnLabel = "Zurueck zum Menue"
+        let btnFont: int32 = 28
+        let btnTextW = measureText(btnLabel, btnFont)
+        let btx = (rect.x + (rect.width - btnTextW.float) / 2.0).int32
+        let bty = (rect.y + (rect.height - btnFont.float) / 2.0).int32
+        drawText(btnLabel, btx, bty, btnFont, WHITE)
+        if hovered and mouseClick:
+            game.returnToMenuRequested = true

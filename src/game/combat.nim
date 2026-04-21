@@ -4,7 +4,7 @@ import std/random
 
 import raylib
 
-import types
+import ../shared/types
 
 proc updateCombat*(game: var GameState) =
     let chunkSizePixels = game.map.chunkSizePixels
@@ -120,8 +120,10 @@ proc updateCombat*(game: var GameState) =
                             bestDist = enemyDistance
                             bestIdx = enemyIdx
                             bestIsBuilding = false
+            var bestIsBunkerOccupant = false
+            var bestBunkerIdx = -1
             block SEARCH_BUILDINGS:
-                if myDamageCategory == DamageCategory.Light: break SEARCH_BUILDINGS
+                if myDamageCategory != DamageCategory.Heavy: break SEARCH_BUILDINGS
                 for bi in 0 ..< game.buildings.len:
                     if not game.buildings[bi].alive: continue
                     if game.buildings[bi].factionIndex < 0: continue
@@ -133,10 +135,36 @@ proc updateCombat*(game: var GameState) =
                         bestDist = bDist
                         bestIdx = bi
                         bestIsBuilding = true
+            block SEARCH_BUNKER_OCCUPANTS:
+                if myDamageCategory == DamageCategory.Heavy: break SEARCH_BUNKER_OCCUPANTS
+                if bestIdx >= 0: break SEARCH_BUNKER_OCCUPANTS
+                for bi in 0 ..< game.buildings.len:
+                    if not game.buildings[bi].alive: continue
+                    if game.buildings[bi].factionIndex < 0: continue
+                    if game.buildings[bi].factionIndex == myFaction: continue
+                    if game.buildings[bi].occupantIndices.len == 0: continue
+                    let bDeltaX = game.buildings[bi].position.x - myPosition.x
+                    let bDeltaY = game.buildings[bi].position.y - myPosition.y
+                    let bDist = sqrt(bDeltaX * bDeltaX + bDeltaY * bDeltaY)
+                    if bDist <= myRange and bDist < bestDist:
+                        var occIdx = -1
+                        let tries = game.buildings[bi].occupantIndices.len
+                        for _ in 0 ..< tries:
+                            let pick = game.buildings[bi].occupantIndices[rand(tries - 1)]
+                            if game.units[pick].alive:
+                                occIdx = pick
+                                break
+                        if occIdx < 0: continue
+                        bestDist = bDist
+                        bestIdx = occIdx
+                        bestIsBuilding = false
+                        bestIsBunkerOccupant = true
+                        bestBunkerIdx = bi
             if bestIdx >= 0:
                 if game.units[i].definition.isEmplacement:
                     echo "DEBUG ART [", i, "] SCHIESST auf [", bestIdx, "] dist=", bestDist
                 let targetPos = if bestIsBuilding: game.buildings[bestIdx].position
+                                elif bestIsBunkerOccupant: game.buildings[bestBunkerIdx].position
                                 else: game.units[bestIdx].position
                 let aimDx = targetPos.x - myPosition.x
                 let aimDy = targetPos.y - myPosition.y
@@ -157,6 +185,10 @@ proc updateCombat*(game: var GameState) =
                 ))
                 if bestIsBuilding:
                     game.buildings[bestIdx].health -= game.units[i].definition.attackDamage
+                elif bestIsBunkerOccupant:
+                    game.units[bestIdx].health -= game.units[i].definition.attackDamage div 4
+                    if game.units[bestIdx].health <= 0:
+                        game.units[bestIdx].alive = false
                 game.units[i].attackTimer = game.units[i].definition.attackCooldown
                 if inBuildingIdx < 0:
                     game.units[i].shootPauseTimer = 0.8

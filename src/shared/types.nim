@@ -61,6 +61,12 @@ type
         kraftBonusClaimed*: bool   # true wenn der einmalige Bonus schon vergeben wurde
         kraftPerSecond*: int       # 0 = kein fortlaufender Bonus
 
+    # schlanke Building-Repraesentation fuer Map-Speicherung
+    MapBuilding* = object
+        kind*: BuildingKind
+        chunkX*: int
+        chunkY*: int
+
     # block MAP:
     Map* = object # quadratische Map aus Chunks, jeder Chunk aus Tiles
         mapSizeInChunks*: int
@@ -68,6 +74,7 @@ type
         chunkSizePixels*: int      # chunkSizeInTiles * PIXELS_PER_TILE
         mapSizePixels*: int        # mapSizeInChunks * chunkSizePixels
         chunks*: seq[Chunk] # index = chunkX * mapSizeInChunks + chunkY
+        buildings*: seq[MapBuilding]
 
     # block UNIT:
     UnitDef* = object # Template fuer einen Einheitentyp (Soldat, Panzer, etc.)
@@ -87,8 +94,7 @@ type
         explosionRadiusMedium*: float
         explosionRadiusLight*: float
         kraftCost*: int  # Kosten in Kraft zum Spawnen
-        texturePathRed*: string  # Pfad zur Textur fuer rote Fraktion
-        texturePathBlue*: string  # Pfad zur Textur fuer blaue Fraktion
+        texturePaths*: array[4, string]  # index = factionIndex (0=rot, 1=blau, 2=gruen, 3=lila)
         texturePathNeutral*: string  # Pfad zur Textur wenn kein Besitzer (Emplacement ohne Crew)
         canTransport*: bool
         maxPassengers*: int
@@ -255,8 +261,13 @@ type
         activeStrategy*: StrategyMode
         defeated*: bool
 
+    # block GAME_MODE:
+    GameMode* = enum
+        MainMenu, MapSelect, Playing
+
     # block GAME_STATE:
     GameState* = object
+        mode*: GameMode
         # map
         map*: Map
         camera*: Camera2D
@@ -266,6 +277,7 @@ type
         unitDefs*: seq[UnitDef]
         troopDefs*: seq[TroopDef]
         selectedUnits*: seq[int]
+        selectedBuilding*: int  # -1 = keins
         # combat
         projectiles*: seq[Projectile]
         explosions*: seq[Explosion]
@@ -289,5 +301,12 @@ type
         # victory
         gameOver*: bool
         winnerFactionIndex*: int  # -1 = kein Gewinner
+        # menu transitions
+        startGameRequested*: bool
+        quitRequested*: bool
+        returnToMenuRequested*: bool
+        # map selection
+        availableMaps*: seq[string]
+        selectedMapName*: string
         # kraft bonus
         kraftTickTimer*: float

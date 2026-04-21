@@ -1,7 +1,7 @@
 import std/tables
 import std/heapqueue
 
-import types
+import ../shared/types
 
 type AStarNode = object
     chunkIdx: int

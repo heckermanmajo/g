@@ -3,7 +3,7 @@ import std/tables
 
 import raylib
 
-import types
+import ../shared/types
 
 proc drawGame*(game: var GameState) =
     let chunkSizePixels = game.map.chunkSizePixels
@@ -68,7 +68,7 @@ proc drawGame*(game: var GameState) =
                         drawTexture(game.textures[tile.textureKey], source, dest, Vector2(x: 0, y: 0), 0, WHITE)
 
             block DRAW_CHUNK_OWNER:
-                if chunk.currentOwner >= 0:
+                if chunk.currentOwner >= 0 and chunk.currentOwner < game.factions.len:
                     let ownerColor = game.factions[chunk.currentOwner].color
                     drawRectangle(chunk.x.int32, chunk.y.int32,
                         chunkSizePixels.int32, chunkSizePixels.int32,
@@ -158,7 +158,8 @@ proc drawGame*(game: var GameState) =
             let unit = game.units[i]
             if not unit.alive: continue
             if unit.inTransportOf >= 0: continue
-            let color = if unit.factionIndex >= 0: game.factions[unit.factionIndex].color
+            let color = if unit.factionIndex >= 0 and unit.factionIndex < game.factions.len:
+                            game.factions[unit.factionIndex].color
                         else: GRAY
 
             block SELECTION_RING:
@@ -197,9 +198,9 @@ proc drawGame*(game: var GameState) =
                     )
                 of VisualKind.Sprite:
                     let isNeutralEmplacement = unit.definition.isEmplacement and unit.crewIndices.len == 0
+                    let safeFactionIdx = if unit.factionIndex in 0..3: unit.factionIndex else: 0
                     let texPath = if isNeutralEmplacement and unit.definition.texturePathNeutral != "": unit.definition.texturePathNeutral
-                                  elif unit.factionIndex == 0: unit.definition.texturePathRed
-                                  else: unit.definition.texturePathBlue
+                                  else: unit.definition.texturePaths[safeFactionIdx]
                     if texPath != "" and texPath in game.textures:
                         let texPtr = addr game.textures[texPath]
                         let drawSize = unit.definition.radius * 2
@@ -236,17 +237,31 @@ proc drawGame*(game: var GameState) =
                 drawRectangle(barX.int32, barY.int32, (barWidth * hpRatio).int32, barHeight.int32, hpColor)
 
     block DRAW_BUILDINGS:
-        for building in game.buildings:
+        for i in 0 ..< game.buildings.len:
+            let building = game.buildings[i]
             if not building.alive: continue
             let w = 60.0
             let h = 60.0
             let bx = building.position.x - w / 2.0
             let by = building.position.y - h / 2.0
             drawRectangle(bx.int32, by.int32, w.int32, h.int32, Color(r: 110, g: 110, b: 110, a: 255))
-            if building.factionIndex >= 0:
+            if building.factionIndex >= 0 and building.factionIndex < game.factions.len:
                 let fc = game.factions[building.factionIndex].color
                 drawRectangle(bx.int32, by.int32, w.int32, h.int32, Color(r: fc.r, g: fc.g, b: fc.b, a: 90))
             drawRectangleLines(bx.int32, by.int32, w.int32, h.int32, BLACK)
+            block BUILDING_SELECTION:
+                if i != game.selectedBuilding: break BUILDING_SELECTION
+                drawRectangleLines((bx - 3).int32, (by - 3).int32, (w + 6).int32, (h + 6).int32, YELLOW)
+                block OCCUPANT_DOTS:
+                    let count = building.occupantIndices.len
+                    if count == 0: break OCCUPANT_DOTS
+                    let dotRadius = 4.0
+                    let spacing = 10.0
+                    let totalWidth = (count - 1).float * spacing
+                    let startX = building.position.x - totalWidth / 2.0
+                    let y = building.position.y + h / 2.0 + 8.0
+                    for k in 0 ..< count:
+                        drawCircle((startX + k.float * spacing).int32, y.int32, dotRadius.float32, GREEN)
             block BUILDING_HEALTH_BAR:
                 if building.health >= building.maxHealth: break BUILDING_HEALTH_BAR
                 let hpRatio = building.health.float / building.maxHealth.float
@@ -306,7 +321,7 @@ proc drawGame*(game: var GameState) =
             drawCircle(smoke.position.x.int32, smoke.position.y.int32, smoke.radius.float32,
                 Color(r: 130, g: 130, b: 130, a: alpha))
 
-        endMode2D()
+    endMode2D()
 
     block DRAW_SELECTION_RECT:
         if game.isDragging and isMouseButtonDown(MouseButton.Left):
